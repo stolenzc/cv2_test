@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-def fit_line2(lines: np.ndarray, pos_offset=50, angle_offset=0.2, thickness=2):
+def fit_line2(lines: np.ndarray, pos_offset=80, angle_offset=15, thickness=2):
     """
     拟合直线
     Args:
@@ -30,37 +30,72 @@ def fit_line2(lines: np.ndarray, pos_offset=50, angle_offset=0.2, thickness=2):
 
     for line in lines:
         for x1, y1, x2, y2 in line:
+            print(x1, y1, x2, y2, line)
             # 水平线段
             if x1 == x2:
+                angle = 90
                 a = 0
+                b = x1
+            elif y1 == y2:
+                angle = 0
+                a = 0
+                b = y1
             else:
                 a = (y2 - y1) / (x2 - x1)
-            b = y1 - a * x1
+                b = y1 - a * x1
+                angle = abs(np.arctan(a) * 57.29577)
+            print(angle)
             is_find_same_line = False
             for index, offset in enumerate(line_offset):
-                if abs(a - offset[0]) < angle_offset and abs(b - offset[1]) < pos_offset:
+                if abs(angle - offset[2]) < angle_offset and abs(b - offset[1]) < pos_offset:
                     line_group[index].append(line)
                     is_find_same_line = True
                     break
             if not is_find_same_line:
                 line_group.append([line])
-                line_offset.append((a, b))
+                line_offset.append((a, b, angle))
+    print('--------------')
+    print(line_group[0])
+    print(line_offset[0])
+
+    print('--------------')
     for index, group_item in enumerate(line_group):
         min_x, max_x = 0, 0
+        if len(group_item) < 10:
+            continue
+        a, b, angle = line_offset[index]
+        min_y, max_y = 0, 0
         for line in group_item:
             for x1, y1, x2, y2 in line:
-                if not min_x:
-                    min_x = min(x1, x2)
-                    max_x = max(x1, x2)
-                else:
-                    min_x = min(min_x, min(x1, x2))
+                if angle == 0:
+                    if min_x == 0:
+                        min_x = min(x1, x2)
+                    else:
+                        min_x = min(min_x, min(x1, x2))
                     max_x = max(max_x, max(x1, x2))
-        a, b = line_offset[index]
-        max_y = int(a * max_x + b)
-        min_y = int(a * min_x + b)
-        result.append([(min_x, min_y), (max_x, max_y)])
+                    min_y = y1
+                    max_y = y1
+                elif angle == 90:
+                    min_x = max_x = x1
+                    if min_y == 0:
+                        min_y = min(y1, y2)
+                    else:
+                        min_y = min(min_y, min(y1, y2))
+                    max_y = max(max_y, max(y1, y2))
+                else:
+                    if min_x == 0:
+                        min_x = min(x1, x2)
+                    else:
+                        min_x = min(min_x, min(x1, x2))
+                    max_x = max(max_x, max(x1, x2))
+                    max_y = int(a * max_x + b)
+                    min_y = int(a * min_x + b)
+        # a, b, angle = line_offset[index]
+        # max_y = int(a * max_x + b)
+        # min_y = int(a * min_x + b)
+        result.append([(min_x, max_x), (min_y, max_y)])
         # cv2.line(result, (min_x, min_y), (max_x, max_y), thickness)
-
+    print(result[0])
     return result
 
 
@@ -84,8 +119,6 @@ gray = cv2.medianBlur(gray, ksize=3)
 # 边缘检测
 edges = cv2.Canny(gray, 50, 100)
 
-print(type(edges))
-
 # minLineLength = 19
 # maxLineGap = 5
 minLineLength = 5
@@ -94,12 +127,6 @@ maxLineGap = 5
 # 直线检测
 lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 20, np.array([]), minLineLength, maxLineGap)
 
-print(type(lines))
-
-lines = fit_line2(lines)
-
-for line in lines:
-    plt.plot(line[0], line[1])
 
 # cv2.imwrite('./2_result.jpg', lines)
 
@@ -111,25 +138,36 @@ for line in lines:
 # print(lines)
 # print('----------------')
 
-# def line(y1, x1, y2, x2):
-#     x = [x1, x2]
-#     y = [y1, y2]
-#     plt.plot(x, y)
+# 设置范围
+plt.subplot(1, 2, 1)
+plt.xlim(0, w)
+plt.ylim(0, h)
 
-# result = []
-# for i in range(len(lines)):
-#     for x1, y1, x2, y2 in lines[i]:
-#         line(y1, x1, y2, x2)
-#         result.append([(x1, y1), (x2, y2)])
-#         cv2.line(img, (x1, y1), (x2, y2), (i * 20, 100 + i * 20, 255), 1)
+def line(y1, x1, y2, x2):
+    x = [x1, x2]
+    y = [y1, y2]
+    plt.plot(x, y)
+
+result = []
+for i in range(len(lines)):
+    for x1, y1, x2, y2 in lines[i]:
+        line(y1, x1, y2, x2)
+        result.append([(x1, y1), (x2, y2)])
+        cv2.line(img, (x1, y1), (x2, y2), (i * 20, 100 + i * 20, 255), 1)
 
 
 # print(len(result), result)
-# 设置范围
+# plt.show()
+
+lines = fit_line2(lines)
+
+plt.subplot(1, 2, 2)
+for line_item in lines:
+    plt.plot(line_item[0], line_item[1])
 plt.xlim(0, w)
 plt.ylim(0, h)
-plt.show()
 plt.savefig('1.jpg')
+plt.show()
 
 
 def cosine_similarity(x, y, norm=False):
