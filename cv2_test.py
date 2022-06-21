@@ -6,7 +6,6 @@ import copy
 import math
 
 import cv2
-from skimage import morphology
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -99,7 +98,7 @@ lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 20, np.array([]), minLineLength, 
 
 # print(type(lines))
 # print(lines)
-lines = fit_line(img, lines)
+# lines = fit_line(img, lines)
 
 # print('----------------')
 # print(lines)
