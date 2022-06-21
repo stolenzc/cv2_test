@@ -4,66 +4,64 @@
 # 取中轴
 import copy
 import math
+from typing import Dict, List
 
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-def fit_line(img, lines, color=(0, 255, 0), thickness=2):
+def fit_line2(lines: np.ndarray, pos_offset=50, angle_offset=0.2, thickness=2):
     """
-    img (np.array): 原始图像
-    lines (list): 霍夫直线结果线段
-    thickness (int): 线宽度
+    拟合直线
+    Args:
+        lines (list): 霍夫直线结果线段
+        pos_offset (int): 线段允许偏移量
+        angle_offset (float): 线段允许偏移角度
+        thickness (int): 线宽
     """
-    line_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+    # 已归类的线段
+    line_group: List[List] = []
+    # 已归类的线段偏移值
+    line_offset: List[tuple] = []
+    # 最终线段
+    result: List = []
+    # 未能归类的线段
+    line_unfind: List = []
 
-    right_x = []
-    right_y = []
-    left_x = []
-    left_y = []
     for line in lines:
         for x1, y1, x2, y2 in line:
-            slope = ((y2-y1)/(x2-x1))
-            if slope <= -0.2:
-                left_x.extend((x1, x2))
-                left_y.extend((y1, y2))
+            # 水平线段
+            if x1 == x2:
+                a = 0
+            else:
+                a = (y2 - y1) / (x2 - x1)
+            b = y1 - a * x1
+            is_find_same_line = False
+            for index, offset in enumerate(line_offset):
+                if abs(a - offset[0]) < angle_offset and abs(b - offset[1]) < pos_offset:
+                    line_group[index].append(line)
+                    is_find_same_line = True
+                    break
+            if not is_find_same_line:
+                line_group.append([line])
+                line_offset.append((a, b))
+    for index, group_item in enumerate(line_group):
+        min_x, max_x = 0, 0
+        for line in group_item:
+            for x1, y1, x2, y2 in line:
+                if not min_x:
+                    min_x = min(x1, x2)
+                    max_x = max(x1, x2)
+                else:
+                    min_x = min(min_x, min(x1, x2))
+                    max_x = max(max_x, max(x1, x2))
+        a, b = line_offset[index]
+        max_y = int(a * max_x + b)
+        min_y = int(a * min_x + b)
+        result.append([(min_x, min_y), (max_x, max_y)])
+        # cv2.line(result, (min_x, min_y), (max_x, max_y), thickness)
 
-            elif slope >= 0.2:
-                right_x.extend((x1, x2))
-                right_y.extend((y1, y2))
-
-    if left_x and left_y:
-        left_fit = np.polyfit(left_x, left_y, 1)
-        left_line = np.poly1d(left_fit)
-
-        # if not self.x1L:
-        x1L = int(img.shape[1] * 0.1)
-
-        y1L = int(left_line(x1L))
-
-        # if not self.x2L:
-        x2L = int(img.shape[1] * 0.4)
-
-        y2L = int(left_line(x2L))
-        cv2.line(line_img, (x1L, y1L), (x2L, y2L), color, thickness)
-
-    if right_x and right_y:
-        right_fit = np.polyfit(right_x, right_y, 1)
-        right_line = np.poly1d(right_fit)
-
-        # if not self.x1R:
-        x1R = int(img.shape[1] * 0.6)
-
-        y1R = int(right_line(x1R))
-
-        # if not self.x2R:
-        x2R = int(img.shape[1] * 0.9)
-
-        y2R = int(right_line(x2R))
-        cv2.line(line_img, (x1R, y1R), (x2R, y2R), color, thickness)
-
-    return line_img
+    return result
 
 
 img = cv2.imread('./2.jpg')
@@ -96,6 +94,15 @@ maxLineGap = 5
 # 直线检测
 lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 20, np.array([]), minLineLength, maxLineGap)
 
+print(type(lines))
+
+lines = fit_line2(lines)
+
+for line in lines:
+    plt.plot(line[0], line[1])
+
+# cv2.imwrite('./2_result.jpg', lines)
+
 # print(type(lines))
 # print(lines)
 # lines = fit_line(img, lines)
@@ -104,20 +111,20 @@ lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 20, np.array([]), minLineLength, 
 # print(lines)
 # print('----------------')
 
-def line(y1, x1, y2, x2):
-    x = [x1, x2]
-    y = [y1, y2]
-    plt.plot(x, y)
+# def line(y1, x1, y2, x2):
+#     x = [x1, x2]
+#     y = [y1, y2]
+#     plt.plot(x, y)
 
-result = []
-for i in range(len(lines)):
-    for x1, y1, x2, y2 in lines[i]:
-        line(y1, x1, y2, x2)
-        result.append([(x1, y1), (x2, y2)])
-        cv2.line(img, (x1, y1), (x2, y2), (i * 20, 100 + i * 20, 255), 1)
+# result = []
+# for i in range(len(lines)):
+#     for x1, y1, x2, y2 in lines[i]:
+#         line(y1, x1, y2, x2)
+#         result.append([(x1, y1), (x2, y2)])
+#         cv2.line(img, (x1, y1), (x2, y2), (i * 20, 100 + i * 20, 255), 1)
 
 
-print(len(result), result)
+# print(len(result), result)
 # 设置范围
 plt.xlim(0, w)
 plt.ylim(0, h)
