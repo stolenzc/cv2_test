@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-def fit_line2(lines: np.ndarray, pos_offset=80, angle_offset=15, thickness=2):
+def fit_line(lines: np.ndarray, pos_offset=100, angle_offset=10, thickness=2, gap_filter=50):
     """
     拟合直线
     Args:
@@ -18,6 +18,7 @@ def fit_line2(lines: np.ndarray, pos_offset=80, angle_offset=15, thickness=2):
         pos_offset (int): 线段允许偏移量
         angle_offset (float): 线段允许偏移角度
         thickness (int): 线宽
+        gap_filter (int): 缝隙大小
     """
     # 已归类的线段
     line_group: List[List] = []
@@ -28,9 +29,17 @@ def fit_line2(lines: np.ndarray, pos_offset=80, angle_offset=15, thickness=2):
     # 未能归类的线段
     line_unfind: List = []
 
+    test_line = []
+
     for line in lines:
         for x1, y1, x2, y2 in line:
-            print(x1, y1, x2, y2, line)
+            if 600 < y1 < 800 and 600 < y2 < 800 and 500 < x1 < 1200 and 500 < x2 < 1200 and x1 != x2:
+                if (y1 - y2) / (x1 - x2) < 0:
+                    test_line.append((x1, y1, x2, y2))
+
+    for line in lines:
+        for x1, y1, x2, y2 in line:
+            # print(x1, y1, x2, y2, line)
             # 水平线段
             if x1 == x2:
                 angle = 90
@@ -43,26 +52,30 @@ def fit_line2(lines: np.ndarray, pos_offset=80, angle_offset=15, thickness=2):
             else:
                 a = (y2 - y1) / (x2 - x1)
                 b = y1 - a * x1
-                angle = abs(np.arctan(a) * 57.29577)
-            print(angle)
+                angle = np.arctan(a) * 57.29577
             is_find_same_line = False
             for index, offset in enumerate(line_offset):
                 if abs(angle - offset[2]) < angle_offset and abs(b - offset[1]) < pos_offset:
+                    if (x1, y1, x2, y2) in test_line:
+                        print(angle, b, offset)
                     line_group[index].append(line)
                     is_find_same_line = True
                     break
             if not is_find_same_line:
                 line_group.append([line])
                 line_offset.append((a, b, angle))
-    print('--------------')
-    print(line_group[0])
-    print(line_offset[0])
+            if (x1, y1, x2, y2) in test_line:
+                print(is_find_same_line, (a, b, angle), index)
+    # print('--------------')
 
-    print('--------------')
+    # print('--------------')
     for index, group_item in enumerate(line_group):
+        # print('print group and offset-------------------')
+        # print(group_item)
+        # print(line_offset[index])
         min_x, max_x = 0, 0
-        if len(group_item) < 10:
-            continue
+        # if len(group_item) < 10:
+        #     continue
         a, b, angle = line_offset[index]
         min_y, max_y = 0, 0
         for line in group_item:
@@ -93,14 +106,23 @@ def fit_line2(lines: np.ndarray, pos_offset=80, angle_offset=15, thickness=2):
         # a, b, angle = line_offset[index]
         # max_y = int(a * max_x + b)
         # min_y = int(a * min_x + b)
+        # print(min_x, max_x, min_y, max_y)
+        if index == 5:
+            print(min_x, max_x, min_y, max_y)
+        if abs(max_x-min_x) < gap_filter and abs(max_y - min_y) < gap_filter:
+            continue
         result.append([(min_x, max_x), (min_y, max_y)])
         # cv2.line(result, (min_x, min_y), (max_x, max_y), thickness)
-    print(result[0])
+    # print(result[0])
     return result
 
+file_name = '2'
 
-img = cv2.imread('./2.jpg')
-print(img.shape)
+img_dir = f"./{file_name}.jpg"
+save_dir = f"./{file_name}_result.jpg"
+
+img = cv2.imread(img_dir)
+# print(img.shape)
 h, w, _ = img.shape
 # # 转换为灰度图片
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -139,7 +161,7 @@ lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 20, np.array([]), minLineLength, 
 # print('----------------')
 
 # 设置范围
-plt.subplot(1, 2, 1)
+plt.subplot(2, 2, 1)
 plt.xlim(0, w)
 plt.ylim(0, h)
 
@@ -159,14 +181,14 @@ for i in range(len(lines)):
 # print(len(result), result)
 # plt.show()
 
-lines = fit_line2(lines)
+lines = fit_line(lines)
 
-plt.subplot(1, 2, 2)
+plt.subplot(2, 2, 4)
 for line_item in lines:
     plt.plot(line_item[0], line_item[1])
 plt.xlim(0, w)
 plt.ylim(0, h)
-plt.savefig('1.jpg')
+plt.savefig(save_dir)
 plt.show()
 
 
