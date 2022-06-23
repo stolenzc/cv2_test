@@ -74,12 +74,12 @@ def split_group(start_x, start_y, end_x, end_y, line, result, gap_filter):
     pass
 
 
-def fit_line(lines: List[np.ndarray], pos_offset=150, angle_offset=10, gap_filter=150, line_gap=500, line_lenth=100):
+def fit_line(lines: List[np.ndarray], pos_offset=150, angle_offset=30, gap_filter=150, line_gap=100, line_lenth=100):
     """
     拟合直线
     Args:
         lines (list): 霍夫直线结果线段
-        pos_offset (int): 线段允许偏移量
+        pos_offset (int): 线段分组允许偏移量
         angle_offset (float): 线段允许偏移角度
         gap_filter (int): 缝隙大小
         point_gap (int): 线与线之间的间隙
@@ -114,6 +114,8 @@ def fit_line(lines: List[np.ndarray], pos_offset=150, angle_offset=10, gap_filte
             if not is_find_same_line:
                 line_group.append([line])
                 line_offset.append((a, b, angle))
+
+    print(line_group)
 
     # 各组线段求端值
     for index, group_item in enumerate(line_group):
@@ -156,7 +158,9 @@ def fit_line(lines: List[np.ndarray], pos_offset=150, angle_offset=10, gap_filte
                     start_x, start_y, end_x, end_y = new_min_x, new_min_y, new_max_x, new_max_y
                 else:
                     start_x, start_y = (start_x, start_y) if start_x < new_min_x else (new_min_x, new_min_y)
+                    start_y = a * start_x + b
                     end_x, end_y = (end_x, end_y) if end_x > new_max_x else (new_max_x, new_max_y)
+                    end_y = a * end_x + b
         if get_pos_length((start_x, start_y), (end_x, end_y)) > line_lenth:
             result.append(((start_x, end_x), (start_y, end_y)))
 
@@ -193,7 +197,7 @@ def fit_line(lines: List[np.ndarray], pos_offset=150, angle_offset=10, gap_filte
         # # cv2.line(result, (min_x, min_y), (max_x, max_y), thickness)
     return result
 
-file_name = '6'
+file_name = '9'
 
 img_dir = f"./{file_name}.jpg"
 save_dir = f"./{file_name}_result.jpg"
@@ -263,6 +267,13 @@ for i in range(len(lines)):
 # plt.show()
 
 lines = fit_line(lines)
+
+# 整理返回前端数据格式
+import json
+return_data = []
+for line in lines:
+    return_data.append([{'x': float(line[0][0]), 'y': float(line[1][0])}, {'x': float(line[0][1]), 'y': float(line[1][1])}])
+print(json.dumps(return_data))
 
 plt.subplot(2, 2, 4)
 for line_item in lines:
